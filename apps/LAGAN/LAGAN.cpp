@@ -6,6 +6,7 @@
 #include <seqan/index.h>
 #include <seqan/seeds.h>
 #include <seqan/seq_io.h>
+#include <seqan/score.h>
 #include <seqan/sequence.h>
 
 
@@ -44,30 +45,38 @@ int main()
     typedef Infix<Dna5String>::Type TInfix;
 
     TIndex index(d5s1);
-    TInfix kmere;
-
+    TInfix kmer;
 
     //create seedSet
-    typedef Seed<Simple> TSeed;
+    typedef Seed<Simple>        TSeed;
+    typedef SeedSet<TSeed>      TSeedSet;
 
     Score<int, Simple> scoringSchemeAnchor(0, -1, -1);
     Score<int, Simple> scoringSchemeGap(2, -1, -1, -2);
 
-    String<TSeed> seedChain;
-
+    TSeedSet seedChain;
+    Score<int, Simple> scoringScheme( 2,-1,-2 ); // match, mismatch, gap
     for (unsigned qPos = 0; qPos < length(d5s2)-qgramSize+1; ++qPos)
     {
-        kmere = infix(d5s2, qPos, qPos+qgramSize);
-        //std::cout << kmere << std::endl;
-        hash(indexShape(index), begin(kmere));
-        for (unsigned i = 0; i < length(getOccurrences(index, indexShape(index))); ++i)
-            appendValue(seedChain, TSeed(getOccurrences(index, indexShape(index))[i], qPos, qgramSize));
+        kmer = infix(d5s2, qPos, qPos+qgramSize);
+        //std::cout << kmer << std::endl;
+        hash(indexShape(index), begin(kmer));
+        for (unsigned i = 0; i < length(getOccurrences(index, indexShape(index))); ++i) {
+            // add seed to seed set using CHAOS chaining method
+            if ( !addSeed( seedChain, TSeed(getOccurrences( index, indexShape(index) )[i], qPos, qgramSize), 2 /*max diag dist*/, 1, scoringScheme, d5s1, d5s2, Chaos() ) )
+                addSeed(seedChain, TSeed(getOccurrences( index, indexShape(index) )[i], qPos, qgramSize), Single()); // just add seed if CHAOS fails
+
+            //appendValue(seedChain, TSeed(getOccurrences(index, indexShape(index))[i], qPos, qgramSize));
             //std::cout << getOccurrences(index, indexShape(index))[i] << std::endl;
+
+            // Probably we don't need to extend them manually
+            //extendSeed( seed, d5s1, d5s2, EXTEND_BOTH, scoringScheme, 3 /*score drop off*/, UngappedXDrop() );
+        }
     }
 
     //appendValue(seedChain, TSeed(6, 9, 9, 12));
     //appendValue(seedChain, TSeed(11, 14, 17, 16));
-
+    /*
     Align<Dna5String, ArrayGaps> alignment;
     resize(rows(alignment), 2);
     assignSource(row(alignment, 0), d5s1);
@@ -78,6 +87,11 @@ int main()
 
     std::cout << "Score: " << result << std::endl;
     std::cout << alignment << std::endl;
+    */
+    typedef Iterator<TSeedSet>::Type TIter;
+    for ( TIter it = begin(seedChain); it != end(seedChain); ++it ) {
+        std::cout<< *it << std::endl;
+    }
 
     return 0;
 }
