@@ -41,11 +41,11 @@ int main()
     //std::cout << d5s2 << std::endl;
 
 
-    const unsigned qgramSize = 3;
+    const unsigned qgramSize = 30;
     Dna5String database = "CATGATTACATA";
 
     //create qgram index with size specified in variable qgramsize
-    typedef Index<Dna5String, IndexQGram<UngappedShape<qgramSize> > > TIndex;
+    typedef Index<Dna5String, IndexQGram<UngappedShape<qgramSize>, OpenAddressing > > TIndex;
     typedef Infix<Dna5String>::Type TInfix;
 
     TIndex index(d5s1);
