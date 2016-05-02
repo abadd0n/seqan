@@ -41,7 +41,7 @@ int main()
     //std::cout << d5s2 << std::endl;
 
 
-    const unsigned qgramSize = 30;
+    const unsigned qgramSize = 19;
     Dna5String database = "CATGATTACATA";
 
     //create qgram index with size specified in variable qgramsize
@@ -50,7 +50,7 @@ int main()
 
     TIndex index(d5s1);
     TInfix kmer;
-
+    std::cout << "here?" << std::endl;
     //create seedSet
     typedef Seed<Simple>        TSeed;
     typedef SeedSet<TSeed>      TSeedSet;
@@ -82,6 +82,17 @@ int main()
     //appendValue(seedChain, TSeed(11, 14, 17, 16));
     String<TSeed> seedChain;
 
+    /*
+    typedef Iterator<TSeedSet > TIter;
+for ( TIter it = begin(seedChain); it != end(seedChain); ++it ) {
+    std::cout<< *it << std::endl;
+}
+ */
+    if (empty(seedChain)) {
+        std::cout << "no seeds found" << std::endl;
+        return 1;
+    }
+
     chainSeedsGlobally(seedChain, seedSet, SparseChaining());
 
     Align<Dna5String, ArrayGaps> alignment;
@@ -95,12 +106,7 @@ int main()
     std::cout << "Score: " << result << std::endl;
     std::cout << alignment << std::endl;
 
-    /*
-    typedef Iterator<String<TSeed> > TIter;
-    for ( TIter it = begin(seedChain); it != end(seedChain); ++it ) {
-        std::cout<< *it << std::endl;
-    }
-     */
+
 
 
     return 0;
