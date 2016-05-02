@@ -15,8 +15,8 @@
 //
 
 using namespace seqan;
-template <typename TSeedChain, typename TSeqString>
-inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSeqString & seqV, unsigned const & qgramSize)
+template <typename TSeedChain, typename TSeqString, typename TQGramSize, typename TSeed>
+inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSeqString & seqV, TQGramSize const & qgramSize, TSeed const & /*tag*/)
 {
     //create qgram index with size specified in variable qgramsize
     typedef Index<Dna5String, IndexQGram<SimpleShape, OpenAddressing > > TIndex;
@@ -27,7 +27,6 @@ inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSe
     TInfix kmer;
 
     //create seedSet
-    typedef Seed<Simple>        TSeed;
     typedef SeedSet<TSeed>      TSeedSet;
 
 
@@ -47,11 +46,12 @@ inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSe
             //appendValue(seedChain, TSeed(getOccurrences(index, indexShape(index))[i], qPos, qgramSize));
         }
     }
-
-
     chainSeedsGlobally(seedChain, seedSet, SparseChaining());
 
-    return 1;
+    if ( empty (seedChain) )
+        return false;
+
+    return true;
 }
 
 //int main(int argc, char *argv[]) {
@@ -78,7 +78,7 @@ int main()
     const unsigned qgramSize = 15;
     String<Seed<Simple>> seedChain;
 
-    createSeedChain(seedChain, seqH, seqV, qgramSize);
+    createSeedChain(seedChain, seqH, seqV, qgramSize, Seed<Simple>());
 
 
 
