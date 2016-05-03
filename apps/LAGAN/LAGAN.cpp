@@ -20,15 +20,17 @@ bool printSeedString(TSeedString & seedSet) {
     typedef typename Iterator<TSeedString>::Type            TSeedChainIter;
     std::cout << "SeedSet" << std::endl;
     for (TSeedChainIter it = begin(seedSet); it != end(seedSet); ++it) {
-        if ( endPositionH(*it) < beginPositionH(*it) || endPositionV(*it) < beginPositionV(*it) )
+        if ( endPositionH(*it) <= beginPositionH(*it) || endPositionV(*it) <= beginPositionV(*it) )
             return false;
-        std::cout << "SeqH\tStart:\t" << beginPositionH(*it) << "\tEnd:\t" << endPositionH(*it) << "\tSeqV\tStart:\t" << beginPositionV(*it) << "\tEnd:\t" << endPositionV(*it) << std::endl;
+        std::cout << "SeqH\tStart:\t" << beginPositionH(*it) << "\tEnd:\t" << endPositionH(*it) << "\tSeqV\tStart:\t" <<
+                beginPositionV(*it) << "\tEnd:\t" << endPositionV(*it) <<
+                "\tupper diag:\t" << upperDiagonal(*it)<< "\tlower diag:\t" << lowerDiagonal(*it) << std::endl;
     }
     return true;
 }
 
 template <typename TSeedChain>
-void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV)
+void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV, int globalUpperDiag , int globalLowerDiag)
 {
     typedef typename Iterator<TSeedChain>::Type            TSeedChainIter;
     for (TSeedChainIter it = begin(seedChain); it != end(seedChain); ++it) {
@@ -36,6 +38,10 @@ void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned g
         setEndPositionH(*it, endPositionH(*it) + globalPosH);
         setBeginPositionV(*it, beginPositionV(*it) + globalPosV);
         setEndPositionV(*it, endPositionV(*it) + globalPosV);
+
+        //diag
+        setUpperDiagonal(*it, upperDiagonal(*it) + globalUpperDiag);
+        setLowerDiagonal(*it, lowerDiagonal(*it) + globalLowerDiag);
     }
 }
 
@@ -121,8 +127,7 @@ int main() {
 
         unsigned const seedChainLen = length(seedChain);
 
-        for (TSeedChainIter it = begin(seedChain); i < seedChainLen+1; ++it)
-        {
+        for (TSeedChainIter it = begin(seedChain); i < seedChainLen + 1; ++it) {
 
             // TODO check if global seed alignment is sorted
             // TODO what does the (*it)?
@@ -153,14 +158,15 @@ int main() {
 
 
             //std::cout << infix( seqV, infix, beginPositionV( *(it+1) ) ) << std::endl;
-            Dna5String seqVInfix = infix(seqV, infixVBegin+1, infixVEnd-1);
-            Dna5String seqHInfix = infix(seqH, infixHBegin+1, infixHEnd-1);
+            Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
+            Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
+
             if (createSeedChain(localSeedChain,
                                 seqHInfix,
                                 seqVInfix,
                                 qgramSizes[1], Seed<Simple>())) {
                 //append(seedChain,localSeedChain);
-                updateSeedPositions(localSeedChain, infixHBegin, infixVBegin);
+                updateSeedPositions(localSeedChain, infixHBegin, infixVBegin, upperDiagonal(*it), lowerDiagonal(*it));
                 insert(seedChain, pos, localSeedChain);
                 pos += length(localSeedChain);
                 it += length(localSeedChain);
@@ -169,10 +175,12 @@ int main() {
         }
     }
 
+
     if (!printSeedString(seedChain)){
         std::cerr << "end before begin in one of the seeds" << std::endl;
         return 1;
     }
+
 
 
     Score<int, Simple> scoringSchemeAnchor(0, -1, -1);
@@ -184,11 +192,13 @@ int main() {
     assignSource(row(alignment, 1), seqV);
     AlignConfig<false, false, false, false> alignConfig;
 
+
     int result = bandedChainAlignment(alignment, seedChain, scoringSchemeAnchor, scoringSchemeGap, alignConfig, 2);
 
     std::cout << "Score: " << result << std::endl;
     std::cout << alignment << std::endl;
 
+    std::cout << toCString(seedChain);
 
     return 0;
 }
