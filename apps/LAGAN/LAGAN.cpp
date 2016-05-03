@@ -9,12 +9,9 @@
 #include <seqan/score.h>
 #include <seqan/sequence.h>
 
-// fragen:  wie funktioniert der kack
-//          how do we find the best seed set?
-//          it doesn't work! WHYY?!
-//          IT DOES WORK!! WHYYYY?!?!?!
-
 using namespace seqan;
+
+/*
 template <typename TSeedString>
 bool printSeedString(TSeedString & seedSet) {
     typedef typename Iterator<TSeedString>::Type            TSeedChainIter;
@@ -28,9 +25,10 @@ bool printSeedString(TSeedString & seedSet) {
     }
     return true;
 }
+ */
 
 template <typename TSeedChain>
-void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV, int globalUpperDiag , int globalLowerDiag)
+void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV)
 {
     typedef typename Iterator<TSeedChain>::Type            TSeedChainIter;
     for (TSeedChainIter it = begin(seedChain); it != end(seedChain); ++it) {
@@ -40,14 +38,18 @@ void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned g
         setEndPositionV(*it, endPositionV(*it) + globalPosV);
 
         //diag
-        setUpperDiagonal(*it, upperDiagonal(*it) + globalUpperDiag);
-        setLowerDiagonal(*it, lowerDiagonal(*it) + globalLowerDiag);
+        setUpperDiagonal(*it, upperDiagonal(*it) + globalPosH-globalPosV);
+        setLowerDiagonal(*it, lowerDiagonal(*it) + globalPosH-globalPosV);
     }
 }
 
 template <typename TSeedChain, typename TSeqString, typename TQGramSize, typename TSeed>
 inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSeqString & seqV, TQGramSize const & qgramSize, TSeed const & /*tag*/)
 {
+    if ( length(seqH) < qgramSize || length(seqV) < qgramSize ) {
+        return false;
+    }
+
     //create qgram index with size specified in variable qgramsize
     typedef Index<Dna5String, IndexQGram<SimpleShape, OpenAddressing > > TIndex;
     typedef Infix<Dna5String>::Type TInfix;
@@ -76,10 +78,13 @@ inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSe
             //appendValue(seedChain, TSeed(getOccurrences(index, indexShape(index))[i], qPos, qgramSize));
         }
     }
+
+
+    if ( empty (seedSet) )
+        return false;
+
     chainSeedsGlobally(seedChain, seedSet, SparseChaining());
 
-    if ( empty (seedChain) )
-        return false;
 
     return true;
 }
@@ -104,15 +109,19 @@ int main() {
     readRecord(meta, seqH, sfi1);
     readRecord(meta, seqV, sfi2);
 
-    const unsigned qgramSizes[] = {10, 3};
+    std::vector<unsigned> qgramSizes;
+    for (unsigned i = 31; i > 3; --i)
+    {
+        qgramSizes.push_back(i);
+    }
     String<Seed<Simple>> seedChain;
 
-    createSeedChain(seedChain, seqH, seqV, qgramSizes[0], Seed<Simple>());
-
     typedef Iterator<String<Seed<Simple> > >::Type TSeedChainIter;
-    String<Seed<Simple>> localSeedChain;
+
     std::cout << "Length seqH:\t" << length(seqH) << "\tseqV:\t" << length(seqV) << std::endl;
 
+    String<Seed<Simple>> localSeedChain;
+    for ( unsigned qGramSize : qgramSizes )
     {
         unsigned i = 0;
         unsigned pos = 0;
@@ -123,50 +132,36 @@ int main() {
         unsigned nextInfixVBegin = 0;
         unsigned nextInfixHBegin = 0;
 
-        std::cout << "seedChain length:\t" << length(seedChain) << std::endl;
-
         unsigned const seedChainLen = length(seedChain);
 
-        for (TSeedChainIter it = begin(seedChain); i < seedChainLen + 1; ++it) {
-
-            // TODO check if global seed alignment is sorted
-            // TODO what does the (*it)?
-            // TODO can we use index() with iterators instead of seqs?
-
-            if (it == end(seedChain)) {
-                break;
-            }
-
+        for ( TSeedChainIter it = begin( seedChain ); i < seedChainLen + 1; ++it )
+        {
             clear(localSeedChain);
 
             infixHBegin = nextInfixHBegin;
             infixVBegin = nextInfixVBegin;
-            infixHEnd = beginPositionH(*it);
-            infixVEnd = beginPositionV(*it);
-            nextInfixHBegin = endPositionH(*it);
-            nextInfixVBegin = endPositionV(*it);
+
 
             if (i == seedChainLen) {
                 infixHEnd = length(seqH);
                 infixVEnd = length(seqV);
+            } else {
+                infixHEnd = beginPositionH(*it);
+                infixVEnd = beginPositionV(*it);
+                nextInfixHBegin = endPositionH(*it);
+                nextInfixVBegin = endPositionV(*it);
             }
 
-            std::cout << "seqH start:\t" << infixHBegin << "\tend:\t" << infixHEnd << std::endl;
-            std::cout << "seqV start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl;
-
-
-
-
-            //std::cout << infix( seqV, infix, beginPositionV( *(it+1) ) ) << std::endl;
             Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
             Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
 
             if (createSeedChain(localSeedChain,
                                 seqHInfix,
                                 seqVInfix,
-                                qgramSizes[1], Seed<Simple>())) {
-                //append(seedChain,localSeedChain);
-                updateSeedPositions(localSeedChain, infixHBegin, infixVBegin, upperDiagonal(*it), lowerDiagonal(*it));
+                                qGramSize,
+                                Seed<Simple>() ) )
+            {
+                updateSeedPositions(localSeedChain, infixHBegin, infixVBegin);
                 insert(seedChain, pos, localSeedChain);
                 pos += length(localSeedChain);
                 it += length(localSeedChain);
@@ -174,14 +169,6 @@ int main() {
             ++i; ++pos;
         }
     }
-
-
-    if (!printSeedString(seedChain)){
-        std::cerr << "end before begin in one of the seeds" << std::endl;
-        return 1;
-    }
-
-
 
     Score<int, Simple> scoringSchemeAnchor(0, -1, -1);
     Score<int, Simple> scoringSchemeGap(2, -1, -1, -2);
