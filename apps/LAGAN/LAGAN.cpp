@@ -165,6 +165,8 @@ int main() {
                 nextInfixVBegin = endPositionV(*it);
             }
 
+            std::cout << "Infix SeqV\t start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl;
+
             Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
             Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
 
