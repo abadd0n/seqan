@@ -11,7 +11,7 @@
 
 using namespace seqan;
 
-/*
+
 template <typename TSeedString>
 bool printSeedString(TSeedString & seedSet) {
     typedef typename Iterator<TSeedString>::Type            TSeedChainIter;
@@ -25,7 +25,7 @@ bool printSeedString(TSeedString & seedSet) {
     }
     return true;
 }
- */
+
 
 template <typename TSeedChain>
 void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV)
@@ -116,11 +116,12 @@ int main() {
     readRecord(meta, seqV, sfi2);
 
     // vector with qgramSizes (for testing)
-    std::vector<unsigned> qgramSizes;
-    for (unsigned i = 31; i > 3; --i)
+    std::vector<unsigned> qgramSizes{};
+    /*
+    for (unsigned i = 31; i > 0; --i)
     {
         qgramSizes.push_back(i);
-    }
+    }*/
 
     // in this string of seeds we will store the seed chains we will find
     String<Seed<Simple>> seedChain;
@@ -159,13 +160,15 @@ int main() {
                 infixHEnd = length(seqH);
                 infixVEnd = length(seqV);
             } else {
-                infixHEnd = beginPositionH(*it);
-                infixVEnd = beginPositionV(*it);
-                nextInfixHBegin = endPositionH(*it);
-                nextInfixVBegin = endPositionV(*it);
+                infixHEnd = beginPositionH(seedChain[pos]);
+                infixVEnd = beginPositionV(seedChain[pos]);
+                nextInfixHBegin = endPositionH(seedChain[pos]);
+                nextInfixVBegin = endPositionV(seedChain[pos]);
             }
 
-            std::cout << "Infix SeqV\t start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl;
+            std::cout << i << "/" << seedChainLen << "\tInfix SeqV\t start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl << std::endl;
+
+            printSeedString(seedChain);
 
             Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
             Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
@@ -192,8 +195,7 @@ int main() {
     resize(rows(alignment), 2);
     assignSource(row(alignment, 0), seqH);
     assignSource(row(alignment, 1), seqV);
-    AlignConfig<false, false, false, false> alignConfig;
-
+    AlignConfig<false, false, false, false> alignConfig;  // ordinary global alignment
 
     int result = bandedChainAlignment(alignment, seedChain, scoringSchemeAnchor, scoringSchemeGap, alignConfig, 2);
 
