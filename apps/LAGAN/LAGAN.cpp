@@ -91,6 +91,10 @@ inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSe
 
 //int main(int argc, char *argv[]) {
 int main() {
+
+    // read sequences from fasta files
+
+    // create file objects for the fasta files
     CharString filePath1 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_6.fa");
     CharString filePath2 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_D.fa");
     SeqFileIn sfi1;
@@ -103,26 +107,35 @@ int main() {
         std::cerr << "ERROR: Could not open the second file" << std::endl;
         return 1;
     }
+
+    // read the first sequences from each file object
     CharString meta;
     Dna5String seqH;
     Dna5String seqV;
     readRecord(meta, seqH, sfi1);
     readRecord(meta, seqV, sfi2);
 
+    // vector with qgramSizes (for testing)
     std::vector<unsigned> qgramSizes;
     for (unsigned i = 31; i > 3; --i)
     {
         qgramSizes.push_back(i);
     }
+
+    // in this string of seeds we will store the seed chains we will find
     String<Seed<Simple>> seedChain;
 
+    // define iterator for string of seeds
     typedef Iterator<String<Seed<Simple> > >::Type TSeedChainIter;
 
     std::cout << "Length seqH:\t" << length(seqH) << "\tseqV:\t" << length(seqV) << std::endl;
 
+    // we seek for seeds several times. Every next iteration happens in windows where we haven't found any seeds yet.
+    // we store those seeds found in repetitive iterations in localSeedChain
     String<Seed<Simple>> localSeedChain;
     for ( unsigned qGramSize : qgramSizes )
     {
+        //
         unsigned i = 0;
         unsigned pos = 0;
         unsigned infixVBegin;
