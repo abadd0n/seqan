@@ -19,18 +19,116 @@ Duration
 Prerequisites
   :ref:`tutorial-datastrucures-indices-q-gram-index`, :ref:`tutorial-algorithms-seed-extension`
 
-Background: Alignment of genomic sequenzes
+Background: Alignment of genomic sequences
 ------------------------------------------
 By comparing two sequences of two different species, we can discover new information concerning the conservation of functional units.
 These discoveries can assist us us in better understanding and analysing the cause of genetic diseases.
 In order the compare two biological sequences we have to calculate a global alignment.
 This will show us which operations are necessary to transform one into the other.
-Unfortunately it is not advisable to perform a standard global alignment in order to align genomic sequences for its runtime is determined by the product of the length of both sequences. Alternativ können lokale Alignments [2, 3] berechnet werden um homologe Regionen zu identifizieren. Es lassen sich so jedoch kaum Zusammenhänge zwischen der gemeinsamen Ordnung der funktionalen Einheiten ableiten. Um effizient genomische Sequenzen global zu alignieren, werden Heuristiken benutzt, die zu erst gute lokale Segmente zwischen den beiden Sequenzen filtern und anschließend diese Informationen nutzen um daraus ein globales Alignment zu berechnen.
-Einer der bekanntesten Vertreter dieser Heuristiken is der LAGAN-Algorithmus [4]. Dieser besteht im wesentlichen aus 3 Schritten: B) Generieren von lokalen Alignments zwischen den beiden Genomen. C) Konstruieren einer globalen Map durch Chaining der identifizierten Segmente. D) Berechnen des optimalen Alignments innerhalb der Region definiert durch die globale Map aus.
+Unfortunately it is not advisable to perform a standard global alignment in order to align genomic sequences
+for its runtime is determined by the product of the length of both sequences.
 
-Tasks
-^^^^^
-Ziel dieser Aufgabe ist es, eine einfache Version des LAGAN-Algorithmus zu implementieren. Eingabe des Programms sind zwei FASTA-Dateien mit den beiden Genomen, sowie die Parameter für das Seeding. Als Ausgabe soll das Programm das Alignment in eine Datei herausschreiben.
+Alternatively you can calculate local alignments in order to identify homologous regions.
+Doing it this way does not allow us to defer connections between the shared order of the functional units. <======= WUT?!
+In order to efficiently calculate a global alignment it is advisable to use heuristics that allow us to identify useful local alignment,
+which in turn will be utilized to calculate the global alignment.
+
+One of the most famous examples of that kind of heuristic is the LAGAN-Algorithm.
+It consists of three basics steps:
+B) Generation of local alignments between the two genomes.
+C) Construction of a global map by chaining the identifies segments.
+D) Calculation of the optimal alignment within the regions not covered by the local alignments.
+
+The goal of this tutorial is to write a simple version of the LAGAN-Algorithm, which will be extended to work iteratively in the last assignment.
+Input will be two FASTA-files containing the genomes and the parameters for the seeding step.
+The output will consist of a file containing the alignment.
+
+Building qGram-Index
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We will be reading two sequences from two different FASTA-files.
+At first, our application should create a qGram-Index from the database.
+An empty ``qGramIndex`` can simply be created with:
+
+.. includefrags:: demos/tutorial/simple_rna_seq/base.cpp
+      :fragment: store
+
+Files can be read from disk with the function :dox:`SeqFileIn#readRecord` that expects a file and two ``StringConcept`` objects.
+The contents of different files can be loaded with subsequent calls of ``readRecord``.
+As we want the user to specify the files via command line, our application will parse them using the :dox:`ArgumentParser` and store them in an option object.
+
+In your first assignment you need to complete a given code template and implement a function that loads two FASTA-files into two different ``StringConcept`` objects.
+We will call them seqH and seqV.
+Following this we will create a q-gram-index with variable size based on SeqH.
+
+
+Assignment 1
+""""""""""""
+
+.. container:: assignment
+
+   Type
+     Application
+
+   Objective
+     Use the code template below (click **more...**) and implement a way to read two sequences.
+     Use the file paths given in the options object and report an error if the files could not be opened.
+
+     .. container:: foldable
+
+        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_assignment1.cpp
+
+   Hint
+     * Open STL `std::fstream <http://www.cplusplus.com/reference/iostream/ifstream>`_ objects and use the function :dox:`SeqFileIn#readRecord` .
+     * `ifstream::open <http://www.cplusplus.com/reference/iostream/ifstream/open>`_ requires the file path to be given as a C-style string (``const char *``).
+     * Use `string::c_str <http://www.cplusplus.com/reference/string/string/c_str>`_ to convert the option strings into C-style strings.
+
+   Solution
+     .. container:: foldable
+
+        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_solution1.cpp
+           :fragment: solution
+
+
+
+Assignment 2
+""""""""""""
+
+.. container:: assignment
+
+   Type
+     Application
+
+   Objective
+     Use the code template below (click **more...**) and implement a way to create a q-gram-index for SeqH while using open addressing.
+
+     .. container:: foldable
+
+        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_assignment1.cpp
+
+   Hint
+     * use :dox:`OpenAddressingQGramIndex` .
+     * use the function :dox:`Shape#resize` .
+
+   Solution
+     .. container:: foldable
+
+        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_solution1.cpp
+           :fragment: solution
+
+
+
+		   
+		   
+		   
+		   
+		   
+		   
+		   
+		   
+
+Assignments
+^^^^^^^^^^
 
 Task 1: Indexaufbau
 Im ersten Teil soll eine qGram-Index über die Datenbank aufgebaut werden. Die Größe der q-Gramme wird vom Nutzer übergeben.
@@ -42,60 +140,15 @@ Task 3: Chaining und Alignment
 Aus dem erhaltenen SeedSet soll nun ein globale Chain [5] berechnet werden. Diese wird anschließend in mittels Banded-Chain-Alignment Algorithmus [4] zu einem globalen Alignment zusammengefügt.
 
 Additionally
-^^^^^^^^^^^^
+^^^^^^^^^^^
 Option 1: CHAOS-Chaining:
 Die Methode zum Zusammenführen von Seeds soll durch das CHAOS-Chaining [6] ersetzt werden, dabei muss auch die Eingabe an das Programm ersetzt werden.
 
 Option 2: Multiple Suchinstanzen
 Im originalen LAGAN Algorithmus wird das Alignment wiederholt ausgeführt wobei in jedem Schritt die Parameter für das CHAOS-Chaining verändert werden, sodass die q-Gramme kleiner aber die erlaubte Fehlertoleranz größer wird. Zuerst wird dabei nach langen gut konservierten Regionen gesucht und in jedem weiteren Durchlauf nur noch die Bereiche zwischen den gefundenen Seeds mit relaxierten Parametern gesucht. Die Method soll dahingehen erweitert werden, dass sie ebenfalls mit 3 verschiedene CHAOS-Einstellungen berechnet werden kann. e` to efficiently determine which genes overlap a read alignment.
 
-Introduction to LAGAN
----------------------
 
-mach ich spaeter
 
-Import Reference Sequence and Query Sequence from File
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-At first, our application should create an empty read in two sequnces that we want to align object into which we import a gene annotation file and a file with RNA-Seq alignments.
-An empty ``FragmentStore`` can simply be created with:
-
-.. includefrags:: demos/tutorial/simple_rna_seq/base.cpp
-      :fragment: store
-
-Files can be read from disk with the function :dox:`File#read` that expects an open stream (e.g. a STL `ifstream <http://www.cplusplus.com/reference/iostream/ifstream>`_), a ``FragmentStore`` object, and a :dox:`FileFormats File Format` tag.
-The contents of different files can be loaded with subsequent calls of ``read``.
-As we want the user to specify the files via command line, our application will parse them using the :dox:`ArgumentParser` and store them in an option object.
-
-In your first assignment you need to complete a given code template and implement a function that loads a SAM file and a GTF file into the ``FragmentStore``.
-
-Assignment 1
-""""""""""""
-
-.. container:: assignment
-
-   Type
-     Application
-
-   Objective
-     Use the code template below (click **more...**) and implement the function ``loadFiles`` to load the annotation and alignment files.
-     Use the file paths given in the options object and report an error if the files could not be opened.
-
-     .. container:: foldable
-
-        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_assignment1.cpp
-
-   Hint
-     * Open STL `std::fstream <http://www.cplusplus.com/reference/iostream/ifstream>`_ objects and use the function :dox:`File#read` with a SAM or GTF tag.
-     * `ifstream::open <http://www.cplusplus.com/reference/iostream/ifstream/open>`_ requires the file path to be given as a C-style string (``const char *``).
-     * Use `string::c_str <http://www.cplusplus.com/reference/string/string/c_str>`_ to convert the option strings into C-style strings.
-     * The function :dox:`File#read` expects a stream, a :dox:`FragmentStore` and a tag, i.e. ``Sam()`` or ``Gtf()``.
-
-   Solution
-     .. container:: foldable
-
-        .. includefrags:: demos/tutorial/simple_rna_seq/genequant_solution1.cpp
-           :fragment: solution
 
 Extract Gene Intervals
 ^^^^^^^^^^^^^^^^^^^^^^
