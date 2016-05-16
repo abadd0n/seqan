@@ -5,7 +5,7 @@
 .. _how-to-use-cases-lagan:
 
 LAGAN
-==============
+=====
 
 Learning Objective
  You will learn how to write a simple LAGAN algorithm
@@ -19,74 +19,45 @@ Duration
 Prerequisites
   :ref:`tutorial-datastrucures-indices-q-gram-index`, :ref:`tutorial-algorithms-seed-extension`
 
-RNA-Seq refers to high-throughput sequencing of cDNA in order to get information about the RNA molecules available in a sample.
-Knowing the sequence and abundance of mRNA allows to determine the (differential) expression of genes, to detect alternative splicing variants, or to annotate yet unknown genes.
+Background: Alignment of genomic sequenzes
+------------------------------------------
+By comparing two sequences of two different species, we can discover new information concerning the conservation of functional units.
+These discoveries can assist us us in better understanding and analysing the cause of genetic diseases.
+In order the compare two biological sequences we have to calculate a global alignment.
+This will show us which operations are necessary to transform one into the other.
+Unfortunately it is not advisable to perform a standard global alignment in order to align genomic sequences for its runtime is determined by the product of the length of both sequences. Alternativ können lokale Alignments [2, 3] berechnet werden um homologe Regionen zu identifizieren. Es lassen sich so jedoch kaum Zusammenhänge zwischen der gemeinsamen Ordnung der funktionalen Einheiten ableiten. Um effizient genomische Sequenzen global zu alignieren, werden Heuristiken benutzt, die zu erst gute lokale Segmente zwischen den beiden Sequenzen filtern und anschließend diese Informationen nutzen um daraus ein globales Alignment zu berechnen.
+Einer der bekanntesten Vertreter dieser Heuristiken is der LAGAN-Algorithmus [4]. Dieser besteht im wesentlichen aus 3 Schritten: B) Generieren von lokalen Alignments zwischen den beiden Genomen. C) Konstruieren einer globalen Map durch Chaining der identifizierten Segmente. D) Berechnen des optimalen Alignments innerhalb der Region definiert durch die globale Map aus.
 
-In the following tutorial you will develop a simple gene quantification tool.
-It will load a file containing gene annotations and a file with RNA-Seq read alignments, compute abundances, and output RPKM values for each expressed gene.
+Tasks
+^^^^^
+Ziel dieser Aufgabe ist es, eine einfache Version des LAGAN-Algorithmus zu implementieren. Eingabe des Programms sind zwei FASTA-Dateien mit den beiden Genomen, sowie die Parameter für das Seeding. Als Ausgabe soll das Programm das Alignment in eine Datei herausschreiben.
 
-Albeit its simplicity, this example can be seen as a starting point for more complex applications, e.g. to extend the tool from quantification of genes to the quantification of (alternatively spliced) isoforms, or to de-novo detect yet unannotated isoforms/genes.
+Task 1: Indexaufbau
+Im ersten Teil soll eine qGram-Index über die Datenbank aufgebaut werden. Die Größe der q-Gramme wird vom Nutzer übergeben.
 
-You will learn how to use the :dox:`FragmentStore` to access gene annotations and alignments and how to use the :dox:`IntervalTree` to efficiently determine which genes overlap a read alignment.
+Task 2: Seeds finden
+Anschließend wird die Query gescanned und die gefundenen Seeds in ein SeedSet eingefügt. Dabei soll zu Beginn die einfache merge Methode verwendet werden.
 
-Introduction to the used Data Structures
-----------------------------------------
+Task 3: Chaining und Alignment
+Aus dem erhaltenen SeedSet soll nun ein globale Chain [5] berechnet werden. Diese wird anschließend in mittels Banded-Chain-Alignment Algorithmus [4] zu einem globalen Alignment zusammengefügt.
 
-This section introduces the :dox:`FragmentStore` and the :dox:`IntervalTree`, which are the fundamental data structures used in this tutorial to represent annotations and read alignments and to efficiently find overlaps between them.
-You may skip one or both subsections if you are already familiar with one or both data structures.
+Additionally
+^^^^^^^^^^^^
+Option 1: CHAOS-Chaining:
+Die Methode zum Zusammenführen von Seeds soll durch das CHAOS-Chaining [6] ersetzt werden, dabei muss auch die Eingabe an das Programm ersetzt werden.
 
-Fragment Store
-^^^^^^^^^^^^^^
+Option 2: Multiple Suchinstanzen
+Im originalen LAGAN Algorithmus wird das Alignment wiederholt ausgeführt wobei in jedem Schritt die Parameter für das CHAOS-Chaining verändert werden, sodass die q-Gramme kleiner aber die erlaubte Fehlertoleranz größer wird. Zuerst wird dabei nach langen gut konservierten Regionen gesucht und in jedem weiteren Durchlauf nur noch die Bereiche zwischen den gefundenen Seeds mit relaxierten Parametern gesucht. Die Method soll dahingehen erweitert werden, dass sie ebenfalls mit 3 verschiedene CHAOS-Einstellungen berechnet werden kann. e` to efficiently determine which genes overlap a read alignment.
 
-The :dox:`FragmentStore` is a data structure specifically designed for read mapping, genome assembly or gene annotation.
-These tasks typically require lots of data structures that are related to each other such as
+Introduction to LAGAN
+---------------------
 
-* reads, mate-pairs, reference genome
-* pairwise alignments, and
-* genome annotation.
+mach ich spaeter
 
-The Fragment Store subsumes all these data structures in an easy to use interface.
-It represents a multiple alignment of millions of reads or mate-pairs against a reference genome consisting of multiple contigs.
-Additionally, regions of the reference genome can be annotated with features like 'gene', 'mRNA', 'exon', 'intron' (see :dox:`FragmentStore::PredefinedAnnotationTypes`) or custom features.
-The Fragment Store supports I/O functionality to read/write a read alignment in `SAM <http://samtools.sourceforge.net/>`_ or `AMOS <http://amos.sourceforge.net/wiki/index.php/AMOS>`_ format and to read/write annotations in `GFF <http://genome.ucsc.edu/FAQ/FAQformat.html#format3>`_ or `GTF <http://genome.ucsc.edu/FAQ/FAQformat.html#format4>`_ format.
+Import Reference Sequence and Query Sequence from File
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Fragment Store can be compared with a database where each table (called "store") is implemented as a :dox:`String` member of the :dox:`FragmentStore` class.
-The rows of each table (implemented as structs) are referred by their ids which are their positions in the string and not stored explicitly.
-The only exception is the alignedReadStore whose elements of type :dox:`AlignedReadStoreElement` contain an id-member as they may be rearranged in arbitrary order, e.g. by increasing genomic positions or by readId.
-Many stores have an associated name store to store element names.
-Each name store is a :dox:`StringSet` that stores the element name at the position of its id.
-All stores are present in the Fragment Store and empty if unused.
-The concrete types, e.g. the position types or read/contig alphabet, can be easily changed by defining a custom config struct which is a template parameter of the Fragment Store class.
-
-Annotation Tree
-^^^^^^^^^^^^^^^
-
-Annotations are represented as a tree that at least contains a root node where all annotations are children or grandchildren of.
-A typical annotation tree looks as follows:
-
-.. figure:: ../../DataStructures/Store/AnnotationTree.png
-
-   Annotation tree example
-
-
-In the Fragment Store the tree is represented by :dox:`FragmentStore::annotationStore`, :dox:`FragmentStore::annotationTypeStore`, :dox:`FragmentStore::annotationKeyStore`, and others.
-Instead of accessing these tables directly, the :dox:`AnnotationTreeIterator AnnotationTree Iterator` provides a high-level interface to traverse and access the annotation tree.
-
-Interval Tree
-^^^^^^^^^^^^^
-
-The :dox:`IntervalTree` is a data structure that stores one-dimensional intervals in a balanced tree and efficiently answers `range queries <http://en.wikipedia.org/wiki/Range_query>`_.
-A range query is an operation that returns all tree intervals that overlap a given query point or interval.
-
-The interval tree implementation provided in SeqAn is based on a :dox:`Tree` which is balanced if all intervals are given at construction time.
-Interval tree nodes are objects of the :dox:`IntervalAndCargo` class and consist of 2 interval boundaries and additional user-defined information, called cargo.
-To construct the tree on a set of given interval nodes use the function :dox:`IntervalTree#createIntervalTree`.
-The functions :dox:`IntervalTree#addInterval` and :dox:`IntervalTree#removeInterval` should only be used if the interval tree needs to be changed dynamically (as they not yet balance the tree).
-
-Import Alignments and Gene Annotations from File
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-At first, our application should create an empty ``FragmentStore`` object into which we import a gene annotation file and a file with RNA-Seq alignments.
+At first, our application should create an empty read in two sequnces that we want to align object into which we import a gene annotation file and a file with RNA-Seq alignments.
 An empty ``FragmentStore`` can simply be created with:
 
 .. includefrags:: demos/tutorial/simple_rna_seq/base.cpp
