@@ -17,7 +17,7 @@ Duration
   1h
 
 Prerequisites
-  :ref:`tutorial-datastructures-alignment`, :ref:`tutorial-datastrucures-indices-q-gram-index`, :ref:`tutorial-algorithms-seed-extension`
+  :ref:`tutorial-datastrucures-indices-q-gram-index`, :ref:`tutorial-algorithms-seed-extension`
 
 Background: Alignment of genomic sequences
 ------------------------------------------
@@ -47,7 +47,7 @@ D) Calculation of the optimal alignment within the regions not covered by the lo
 
 The goal of this tutorial is to write a simple version of the LAGAN-Algorithm, which will be extended to work iteratively in the last assignment.
 Input will be two FASTA-files containing the genomes and the parameters for the seeding step.
-The output will consist of a file containing the alignment.
+The output will consist of a standard output containing the alignment.
 
 Building q-gram-index
 ^^^^^^^^^^^^^^^^^^^^^
@@ -59,10 +59,23 @@ Files can be read from disk with the function :dox:`SeqFileIn#readRecord` that e
 The contents of different files can be loaded with subsequent calls of :dox:`SeqFileIn#readRecord`.
 As we want the user to specify the files via command line, our application will parse them using the :dox:`ArgumentParser` and store them in an option object.
 
+.. includefrags:: demos/tutorial/lagan/assignment1.cpp
+    :fragment: include
+
+.. includefrags:: demos/tutorial/lagan/assignment1.cpp
+    :fragment: sequences
+
 We will call the reference seqH and the query seqV.
 
-In your first assignment you need to complete a given code template and implement a way to create a q-gram-index with variable size based on the reference.
-We will use Open Addressing in order to have maximum q-gram-size of 31.
+In your first assignment we will begin writing a function that will allow us to to create a seed chain.
+The function will look something like this:
+
+.. includefrags:: demos/tutorial/lagan/assignment1.cpp
+    :fragment: createSeedChainHead
+
+For now you will only need to complete a given code template and implement a way to create a q-gram-index
+with variable size based on the reference.
+We will use Open Addressing in order to be able to have the user enter a maximum q-gram-size of 31.
 
 Assignment 1
 """"""""""""
@@ -79,6 +92,7 @@ Assignment 1
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/assignment1.cpp
+            :fragment: createSeedChain
 
    Hint
      .. container:: foldable
@@ -90,18 +104,20 @@ Assignment 1
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/solution1.cpp
-           :fragment: solution
+           :fragment: createSeedChain
 
 
 
-Creating a seed-set
-^^^^^^^^^^^^^^^^^^^
+Creating a Seed-set and a Global-Chain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Now that we have a q-gram-index we can begin to find our seeds based on the k-meres from our query.
 For this we will use an infix with the specified q-gram-size based on SeqV.
 We can find the position of an infix in the reference by hashing it.
 This will allow us to add the found seeds to a seed-set using the chaos-chaining method.
 Adding a seed via chaos-chaining requires a :dox:`Score`.
+Examples on how to implement chaos-chaining can be found here: :dox:`SeedSet#addSeed`.
+
 If a seed cannot be added using the chaos-chaining method,
 you should add the seed using the simple-merge method in order to create a new anchor.
 
@@ -118,16 +134,16 @@ Assignment 2
    Type
      Application
 
-   Objective
-     Use the code template below (click **more...**) and implement a way to create a seed-set for SeqV.
-
+   Objectives
+     * Use the code template below (click **more...**) and complement the previous function so that it creates a seed-set for SeqV.
+     * Additionally combine the seed set into a global chain.
 
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/assignment2.cpp
-           :fragment: main
+           :fragment: createSeedChain
 
-   Hint
+   Hint 1
      .. container:: foldable
 
        * use the function :dox:`SegmentableConcept#infix`.
@@ -135,22 +151,23 @@ Assignment 2
        * use the function :dox:`SeedSet#addSeed`.
        * use :dox:`Score`.
 
+   Hint 2
+     .. container:: foldable
+
+       * use the function :dox:`chainSeedsGlobally`.
+
    Solution
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/solution2.cpp
-           :fragment: solution
+           :fragment: createSeedChain
 
 
 
 Chaining and Alignment
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Now that we have successfully created a seed-set, it is time to defer the global chain by chaining the seeds.
-For this we will create an empty ``String<Seed>``
-
-.. includefrags:: demos/tutorial/lagan/solution3.cpp
-    :fragment: seedChain
+Now that we have successfully created a global chain, it is time to defer the global alignment.
 
 This seedChain will the be extended to a global alignment by using the banded-chain-alignment algorithm.
 For this we need to :dox:`Align` both sequences by creating an alignment object and specifying the scoringSchemes.
@@ -172,16 +189,12 @@ Assignment 3
         .. includefrags:: demos/tutorial/lagan/assignment3.cpp
             :fragment: main
 
-   Hint 1
-     .. container:: foldable
-
-       * use the function :dox:`chainSeedsGlobally`.
-
-   Hint 2
+   Hint
      .. container:: foldable
 
        * use the function :dox:`bandedChainAlignment`.
        * use :dox:`Score`.
+       * use :dox:`Align`
 
    Solution
      .. container:: foldable
