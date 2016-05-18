@@ -71,7 +71,7 @@ inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSe
         for (unsigned i = 0; i < length(getOccurrences(index, indexShape(index))); ++i) {
             // add seed to seed set using CHAOS chaining method
             if ( !addSeed( seedSet, TSeed(getOccurrences( index, indexShape(index) )[i], qPos, qgramSize), 5 /*max diag dist*/, 10 /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
-                addSeed(seedSet, TSeed(getOccurrences( index, indexShape(index) )[i], qPos, qgramSize), Single()); // just add seed if CHAOS fails
+                addSeed( seedSet, TSeed(getOccurrences( index, indexShape(index) )[i], qPos, qgramSize ), Single()); // just add seed if CHAOS fails
 
             // Probably we don't need to extend them manually
             //extendSeed( seed, d5s1, d5s2, EXTEND_BOTH, scoringScheme, 3 /*score drop off*/, UngappedXDrop() );
@@ -95,8 +95,12 @@ int main() {
     // read sequences from fasta files
 
     // create file objects for the fasta files
-    CharString filePath1 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_6.fa");
-    CharString filePath2 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_D.fa");
+    CharString filePath1 = "/mnt/EXT4atSeagate/Downloads/genomes/dmel-all-chromosome-r6_10.fa";
+    CharString filePath2 = "/mnt/EXT4atSeagate/Downloads/genomes/dmoj-all-chromosome-r1_3.fasta";
+    //CharString filePath1 = "/mnt/EXT4atSeagate/Downloads/genomes/S288C_Chromosome_IV.fa";
+    //CharString filePath2 = "/mnt/EXT4atSeagate/Downloads/genomes/s_cerevisiae_chr04.fa";
+    //CharString filePath1 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_6.fa");
+    //CharString filePath2 = getAbsolutePath("apps/LAGAN/bovine_adenovirus_D.fa");
     SeqFileIn sfi1;
     if (!open(sfi1, toCString(filePath1))) {
         std::cerr << "ERROR: Could not open the first file" << std::endl;
@@ -109,14 +113,19 @@ int main() {
     }
 
     // read the first sequences from each file object
-    CharString meta;
+    StringSet<CharString> metas;
+    StringSet<Dna5String> seqHs;
+    StringSet<Dna5String> seqVs;
     Dna5String seqH;
     Dna5String seqV;
-    readRecord(meta, seqH, sfi1);
-    readRecord(meta, seqV, sfi2);
+    readRecords(metas, seqHs, sfi1);
+    readRecords(metas, seqVs, sfi2);
+
+    seqH = concat(seqHs,"",true);
+    seqV = concat(seqVs,"",true);
 
     // vector with qgramSizes (for testing)
-    std::vector<unsigned> qgramSizes{};
+    std::vector<unsigned> qgramSizes{31, 15, 10};
     /*
     for (unsigned i = 31; i > 0; --i)
     {
@@ -124,19 +133,28 @@ int main() {
     }*/
 
     // in this string of seeds we will store the seed chains we will find
-    String<Seed<Simple>> seedChain;
+    SeedSet<Seed<Simple>> globalSeedSet;
 
     // define iterator for string of seeds
-    typedef Iterator<String<Seed<Simple> > >::Type TSeedChainIter;
+    typedef Iterator<SeedSet<Seed<Simple> > >::Type TSeedSetIter;
 
     std::cout << "Length seqH:\t" << length(seqH) << "\tseqV:\t" << length(seqV) << std::endl;
 
     // we seek for seeds several times. Every next iteration happens in windows where we haven't found any seeds yet.
     // we store those seeds found in repetitive iterations in localSeedChain
     String<Seed<Simple>> localSeedChain;
+    Score<int, Simple> scoringScheme( 2,-1,-2 ); // match, mismatch, gap
+
+    std::clock_t start;
+    double durationSeeds;
+    double durationAlign;
+    double durationNW;
+    start = std::clock();
+
+
     for ( unsigned qGramSize : qgramSizes )
     {
-        //
+        std::cout << "qgram " << qGramSize << std::endl;
         unsigned i = 0;
         unsigned pos = 0;
         unsigned infixVBegin;
@@ -146,29 +164,31 @@ int main() {
         unsigned nextInfixVBegin = 0;
         unsigned nextInfixHBegin = 0;
 
-        unsigned const seedChainLen = length(seedChain);
+        unsigned counter = 0;
 
-        for ( TSeedChainIter it = begin( seedChain ); i < seedChainLen + 1; ++it )
+        unsigned const seedSetLen = length(globalSeedSet);
+
+        for ( TSeedSetIter globalIter = begin( globalSeedSet, Standard() ); i < seedSetLen + 1; ++i, ++pos )
         {
             clear(localSeedChain);
 
             infixHBegin = nextInfixHBegin;
             infixVBegin = nextInfixVBegin;
 
-
-            if (i == seedChainLen) {
+            globalIter = begin( globalSeedSet, Standard() ) + pos;
+            if (i == seedSetLen) {
                 infixHEnd = length(seqH);
                 infixVEnd = length(seqV);
             } else {
-                infixHEnd = beginPositionH(seedChain[pos]);
-                infixVEnd = beginPositionV(seedChain[pos]);
-                nextInfixHBegin = endPositionH(seedChain[pos]);
-                nextInfixVBegin = endPositionV(seedChain[pos]);
+                infixHEnd = beginPositionH(*globalIter);
+                infixVEnd = beginPositionV(*globalIter);
+                nextInfixHBegin = endPositionH(*globalIter);
+                nextInfixVBegin = endPositionV(*globalIter);
             }
 
-            std::cout << i << "/" << seedChainLen << "\tInfix SeqV\t start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl << std::endl;
+            //std::cout << i << "/" << seedChainLen << "\tInfix SeqV\t start:\t" << infixVBegin << "\tend:\t" << infixVEnd << std::endl << std::endl;
 
-            printSeedString(seedChain);
+            //printSeedString(seedChain);
 
             Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
             Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
@@ -180,13 +200,33 @@ int main() {
                                 Seed<Simple>() ) )
             {
                 updateSeedPositions(localSeedChain, infixHBegin, infixVBegin);
-                insert(seedChain, pos, localSeedChain);
-                pos += length(localSeedChain);
-                it += length(localSeedChain);
+                for ( Iterator<String<Seed<Simple> > >::Type localIter = begin( localSeedChain, Standard() ); localIter != end( localSeedChain, Standard() ); ++localIter )
+                {
+                    if ( !addSeed( globalSeedSet, *localIter, 5 /*max diag dist*/, 10 /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
+                    {
+                        addSeed( globalSeedSet, *localIter, Single() ); // just add seed if CHAOS fails
+                        ++pos;
+                        ++counter;
+                    }
+                }
             }
-            ++i; ++pos;
         }
     }
+
+    std::cout << "Searching for seeds done" << std::endl;
+
+    durationSeeds = (std::clock() - start )/ (double) CLOCKS_PER_SEC;
+    std::cout << "Runtime Find Seeds: " << durationSeeds << std::endl;
+
+
+    printSeedString(globalSeedSet);
+
+    start = std::clock();
+
+    String<Seed<Simple> > seedChain;
+    chainSeedsGlobally( seedChain, globalSeedSet, SparseChaining() );
+
+    std::cout << "global seed chain done" << std::endl;
 
     Score<int, Simple> scoringSchemeAnchor(0, -1, -1);
     Score<int, Simple> scoringSchemeGap(2, -1, -1, -2);
@@ -199,10 +239,14 @@ int main() {
 
     int result = bandedChainAlignment(alignment, seedChain, scoringSchemeAnchor, scoringSchemeGap, alignConfig, 2);
 
-    std::cout << "Score: " << result << std::endl;
-    std::cout << alignment << std::endl;
+    durationAlign = (std::clock() - start )/ (double) CLOCKS_PER_SEC;
+    std::cout << "Runtime Banded Chain Alignment: " << durationAlign << std::endl;
+    std::cout << "Runtime Total LAGAN: " << durationAlign + durationSeeds << std::endl;
 
-    std::cout << toCString(seedChain);
+    std::cout << "Score: " << result << std::endl;
+    //std::cout << alignment << std::endl;
+
+    //std::cout << toCString(seedChain);
 
     return 0;
 }
