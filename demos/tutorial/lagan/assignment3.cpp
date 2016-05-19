@@ -7,7 +7,6 @@
 #include <seqan/sequence.h>
 #include <seqan/arg_parse.h>
 
-
 using namespace seqan;
 //![include]
 
@@ -32,47 +31,52 @@ void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned g
 //![updateSeedPosition]
 //![createSeedChain]
 //![createSeedChainHead]
-template <typename TSeedChain, typename TSeqString, typename TQGramSize, typename TSeed>
-inline bool createSeedChain(TSeedChain & seedChain, TSeqString const & seqH, TSeqString & seqV, TQGramSize const & qgramSize, TSeed const & /*tag*/)
+template <typename TSeedChain, typename TSeqString, typename TSeedParams, typename TSeed>
+inline bool createSeedChain( TSeedChain & seedChain, TSeqString const & seqH, TSeqString & seqV, TSeedParams const & seedParams, TSeed const & /*tag*/ )
 //![createSeedChainHead]
 {
-    if ( length(seqH) < qgramSize || length(seqV) < qgramSize ) {
+    const unsigned qgramsize = seedParams[0];
+    //parameters for banded chain alignment
+    const unsigned maxdiagdist = seedParams[1];
+    const unsigned bandwidth = seedParams[2];
+
+    if ( length( seqH ) < qgramsize || length( seqV ) < qgramsize ) {
         return false;
     }
 
     //create qgram index with size specified in variable qgramsize
     typedef Index<Dna5String, IndexQGram<SimpleShape, OpenAddressing > > TIndex;
+
+    TIndex index( seqH );
+    resize( indexShape( index ), qgramsize );
+
     typedef Infix<Dna5String>::Type TInfix;
-
-    TIndex index(seqH);
-    resize(indexShape(index),qgramSize);
-
+    TInfix kmer;
     //![seedSet]
     //create seedSet
     typedef SeedSet<TSeed>      TSeedSet;
     TSeedSet seedSet;
     //![seedSet]
-
-    //scoringscheme
-    Score<int, Simple> scoringScheme( 2,-1,-2 ); // match, mismatch, gap
-
-    //infix
-    TInfix kmer;
-
-    for (unsigned qPos = 0; qPos < length(seqV)-qgramSize+1; ++qPos)
+    //![scoringScheme]
+    Score<int, Simple> scoringScheme( 2, -1, -2 ); // match, mismatch, gap
+    //![scoringScheme]
+    for ( unsigned qPos = 0; qPos < length( seqV ) - qgramsize + 1; ++qPos )
     {
-        kmer = infix(seqV, qPos, qPos+qgramSize);
+        kmer = infix( seqV, qPos, qPos + qgramsize );
         hash(indexShape(index), begin(kmer));
         for ( auto occurence : getOccurrences( index, indexShape( index ) ) ) {
             // add seed to seed set using CHAOS chaining method
-            if ( !addSeed( seedSet, TSeed(occurence, qPos, qgramSize), 5 /*max diag dist*/, 10 /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
-                addSeed( seedSet, TSeed(occurence, qPos, qgramSize ), Single()); // just add seed if CHAOS fails
+            if ( !addSeed( seedSet, TSeed( occurence, qPos, qgramsize ), maxdiagdist /*max diag dist*/, bandwidth /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
+                addSeed( seedSet, TSeed( occurence, qPos, qgramsize ), Single() ); // just add seed if CHAOS fails
         }
     }
+
     if ( empty (seedSet) )
         return false;
 
+    //chain seeds
     chainSeedsGlobally(seedChain, seedSet, SparseChaining());
+
     return true;
 }
 //![createSeedChain]
@@ -82,7 +86,10 @@ struct LaganOptions
 {
     CharString path2file1;
     CharString path2file2;
-    std::vector<unsigned> qgramsize;
+    String<Tuple<unsigned, 3> > seedParams;
+    std::vector<unsigned> qGramSizes;
+    std::vector<unsigned> chaosBandWidths;
+    std::vector<unsigned> chaosDiagDists;
 };
 
 ArgumentParser::ParseResult
@@ -110,8 +117,8 @@ parseCommandLine(LaganOptions & options, int argc, char ** argv)
     addArgument( parser, ArgParseArgument( ArgParseArgument::STRING, "PATH" ) );
 
     addOption( parser, ArgParseOption(
-            "q", "qgramsize", "one or more qGram sizes",
-            ArgParseArgument::STRING, "SIZE", true ) );
+            "s", "seedparams", "qGram size and its respective CHAOS parameters",
+            ArgParseArgument::STRING, "PARAMS", true ) );
 
     // Parse command line.
     ArgumentParser::ParseResult res = seqan::parse(parser, argc, argv);
@@ -121,19 +128,41 @@ parseCommandLine(LaganOptions & options, int argc, char ** argv)
         return res;
 
     // Extract option values.
-    if (isSet(parser, "qgramsize"))
+    if (isSet(parser, "seedparams"))
     {
-        for (std::string sizeString : getOptionValues(parser, "qgramsize"))
+        for (CharString paramsString : getOptionValues(parser, "seedparams"))
         {
-            unsigned qsize;
-            if (!lexicalCast(qsize, sizeString))
+            StringSet<CharString> params;
+            strSplit(params, paramsString, EqualsChar<','>());
+            unsigned qsize,
+                    chaosDiagDist,
+                    chaosBandWidth;
+
+            if ( !lexicalCast( qsize, params[0] ) )
             {
-                std::cerr << "ERROR: Invalid qGramSize " << sizeString << "\n";
-                return seqan::ArgumentParser::PARSE_ERROR;
+                std::cerr << "ERROR: Invalid qGramSize " << params[0] << std::endl;
+                return ArgumentParser::PARSE_ERROR;
             } else
             {
-                options.qgramsize.push_back(qsize);
+                options.qGramSizes.push_back(qsize);
             }
+            if ( !lexicalCast(chaosDiagDist, params[1]) )
+            {
+                std::cerr << "ERROR: Invalid maximal diagonal distance for CHAOS chaining " << params[1] << std::endl;
+                return ArgumentParser::PARSE_ERROR;
+            } else
+            {
+                options.chaosDiagDists.push_back(chaosDiagDist);
+            }
+            if ( !lexicalCast(chaosBandWidth, params[2]) )
+            {
+                std::cerr << "ERROR: Invalid band width for CHAOS chaining " << params[2] << std::endl;
+                return ArgumentParser::PARSE_ERROR;
+            } else
+            {
+                options.chaosBandWidths.push_back(chaosBandWidth);
+            }
+            appendValue(options.seedParams, Tuple<unsigned, 3>{qsize, chaosDiagDist, chaosBandWidth} );
         }
     }
 
@@ -188,9 +217,6 @@ int main(int argc, char ** argv) {
 
     Dna5String seqH = concat(seqHs,"",true);
     Dna5String seqV = concat(seqVs,"",true);
-
-    //vector for qgram sizes
-    std::vector<unsigned> qgramSizes = options.qgramsize;
     //![sequences]
 
     // in this string of seeds we will store the seed chains we will find
@@ -206,9 +232,9 @@ int main(int argc, char ** argv) {
     String<Seed<Simple>> localSeedChain;
     Score<int, Simple> scoringScheme( 2,-1,-2 ); // match, mismatch, gap
 
-    for ( unsigned qGramSize : qgramSizes )
+    for ( unsigned curParam = 0; curParam < length(options.seedParams); ++curParam )
     {
-        std::cout << "qgram " << qGramSize << std::endl;
+        std::cout << "qgram " << options.seedParams[curParam][0] << std::endl;
         unsigned i = 0;
         unsigned pos = 0;
         unsigned infixVBegin;
@@ -240,20 +266,24 @@ int main(int argc, char ** argv) {
                 nextInfixVBegin = endPositionV(*globalIter);
             }
 
-
             Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
             Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
 
             if (createSeedChain(localSeedChain,
                                 seqHInfix,
                                 seqVInfix,
-                                qGramSize,
+                                options.seedParams[curParam],
                                 Seed<Simple>() ) )
             {
+                unsigned prevParam = curParam - 1;
+                if ( curParam == 0 )
+                {
+                    prevParam = 0;
+                }
                 updateSeedPositions(localSeedChain, infixHBegin, infixVBegin);
                 for ( Iterator<String<Seed<Simple> > >::Type localIter = begin( localSeedChain, Standard() ); localIter != end( localSeedChain, Standard() ); ++localIter )
                 {
-                    if ( !addSeed( globalSeedSet, *localIter, 5 /*max diag dist*/, 10 /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
+                    if ( !addSeed( globalSeedSet, *localIter, options.seedParams[prevParam][1] /*max diag dist*/, options.seedParams[prevParam][2] /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
                     {
                         addSeed( globalSeedSet, *localIter, Single() ); // just add seed if CHAOS fails
                         ++pos;
@@ -263,18 +293,15 @@ int main(int argc, char ** argv) {
             }
         }
     }
-    Score<int, Simple> scoringSchemeAnchor(0, -1, -1);
-    Score<int, Simple> scoringSchemeGap(2, -1, -1, -2);
 
-    Align<Dna5String, ArrayGaps> alignment;
-    resize(rows(alignment), 2);
-    assignSource(row(alignment, 0), seqH);
-    assignSource(row(alignment, 1), seqV);
-    AlignConfig<false, false, false, false> alignConfig;  // ordinary global alignment
+    //create seedChain
+    String<Seed<Simple> > seedChain;
+    chainSeedsGlobally( seedChain, globalSeedSet, SparseChaining() );
 
-    int result = bandedChainAlignment(alignment, seedChain, scoringSchemeAnchor, scoringSchemeGap, alignConfig, 2);
+    // INSERT YOUR CODE HERE ...
+    //
 
-    std::cout << "Score: " << result << std::endl;
+    //![align]
     return 0;
 }
 //![main]
