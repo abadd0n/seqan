@@ -38,7 +38,7 @@ which in turn will be utilized to calculate the global alignment.
 One of the most famous examples of that kind of heuristic is the LAGAN algorithm.
 
 .. figure:: lagan.jpg
-   :width: 60%
+   :width: 70%
 
    LAGAN example
 
@@ -160,7 +160,7 @@ Assignment 2
         .. includefrags:: demos/tutorial/lagan/assignment2.cpp
            :fragment: createSeedChain
 
-   Hint 1
+   Hint
      .. container:: foldable
 
        * use the function :dox:`SegmentableConcept#infix`.
@@ -199,33 +199,30 @@ Assignment 3
      Application
 
    Objective
-     Use the code template below (click **more...**) and implement a way to create an alignment based on the global chain.
-
-
-     .. container:: foldable
-
-        .. includefrags:: demos/tutorial/lagan/assignment3.cpp
-            :fragment: main
+     Extend the main function and implement a way to create an alignment based on the global chain.
 
    Hint
      .. container:: foldable
 
        * use the function :dox:`bandedChainAlignment`.
        * use :dox:`Score`.
-       * use :dox:`Align`
+       * use :dox:`Align`.
+
+   Function Call for createSeedChain
+     .. container:: foldable
+
+       .. includefrags:: demos/tutorial/lagan/assignment3.cpp
+            :fragment: call
 
    Solution
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/solution3.cpp
-            :fragment: alignment
+            :fragment: main
 
 
 Iterative LAGAN
 ^^^^^^^^^^^^^^^
-
-.. warning::
-    This is not trivial.
 
 The following assignments will be more complex, because they will cover how to
 include iterative steps in the LAGAN algorithm.
@@ -233,7 +230,7 @@ This will allow us to increase the accuracy by searching for new seed-chains wit
 areas previously not covered by the global chain.
 
 .. figure:: lagan_recursive.png
-   :width: 60%
+   :width: 70%
 
    **Iterative steps of LAGAN.** In the first step we find a chain of seeds. However it will still have gaps between those seeds. This is why we do another step and search in a window between seeds with a smaller q-gram size. We can repeat this kind of recursive search as long as we deem it reasonable.
 
@@ -308,16 +305,10 @@ Assignment 5
      Application
 
    Objective
-     Use the code template below (click **more...**) and implement a way to iterate through the
+     Extend the main function and implement a way to iterate through the
      parts not yet covered by the global seed set.
      We need to add these to the global seed set using the CHAOS chaining method.
      At the end we can create a global seed chain and an alignment.
-
-
-     .. container:: foldable
-
-        .. includefrags:: demos/tutorial/lagan/base_assignment.cpp
-            :fragment: main
 
    Hint
      .. container:: foldable
@@ -325,11 +316,17 @@ Assignment 5
        * use the previous functions.
        * you need to update the positions of the local seeds with the positions of the last seed prior to the gap.
 
+   Exemplary For-Loop
+     .. container:: foldable
+
+        .. includefrags:: demos/tutorial/lagan/base_assignment.cpp
+            :fragment: assignment
+
    Solution
      .. container:: foldable
 
         .. includefrags:: demos/tutorial/lagan/base.cpp
-            :fragment: solution
+            :fragment: main
 
 Next Steps
 ----------

@@ -191,8 +191,10 @@ int main(int argc, char ** argv) {
     Dna5String seqV = concat(seqVs,"",true);
     //![sequences]
 
+    //![call]
     String<Seed<Simple> > seedChain;
     createSeedChain(seedChain, seqH, seqV, options.seedParams[0], Seed<Simple>() );
+    //![call]
 
     // INSERT YOUR CODE HERE ...
     //

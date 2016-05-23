@@ -224,21 +224,18 @@ int main(int argc, char ** argv) {
 
     for ( unsigned curParam = 0; curParam < length(options.seedParams); ++curParam )
     {
-        std::cout << "qgram " << options.seedParams[curParam][0] << std::endl;
-        unsigned i = 0;
-        unsigned pos = 0;
-        unsigned infixVBegin;
-        unsigned infixHBegin;
-        unsigned infixVEnd = 0;
-        unsigned infixHEnd = 0;
-        unsigned nextInfixVBegin = 0;
-        unsigned nextInfixHBegin = 0;
-
-        unsigned counter = 0;
+        unsigned globalGapCounter = 0;  // we count how many gaps appear in the original globalSeedSet
+        unsigned pos = 0;               // current position in globalSeedSet
+        unsigned infixVBegin;           // begin of the current gap in seqV
+        unsigned infixHBegin;           // begin of the current gap in seqH
+        unsigned infixVEnd = 0;         // end of the current gap in seqV
+        unsigned infixHEnd = 0;         // end of the current gap in seqH
+        unsigned nextInfixVBegin = 0;   // begin of the next gap in seqV
+        unsigned nextInfixHBegin = 0;   // begin of the next gap in seqH
 
         unsigned const seedSetLen = length(globalSeedSet);
 
-        for ( TSeedSetIter globalIter = begin( globalSeedSet, Standard() ); i < seedSetLen + 1; ++i, ++pos )
+        for ( TSeedSetIter globalIter = begin( globalSeedSet, Standard() ); globalGapCounter < seedSetLen + 1; ++globalGapCounter, ++pos )
         {
             clear(localSeedChain);
 
@@ -246,7 +243,7 @@ int main(int argc, char ** argv) {
             infixVBegin = nextInfixVBegin;
 
             globalIter = begin( globalSeedSet, Standard() ) + pos;
-            if (i == seedSetLen) {
+            if (globalGapCounter == seedSetLen) {
                 infixHEnd = length(seqH);
                 infixVEnd = length(seqV);
             } else {
@@ -277,7 +274,6 @@ int main(int argc, char ** argv) {
                     {
                         addSeed( globalSeedSet, *localIter, Single() ); // just add seed if CHAOS fails
                         ++pos;
-                        ++counter;
                     }
                 }
             }
