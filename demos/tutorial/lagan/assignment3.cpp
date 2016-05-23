@@ -10,25 +10,6 @@
 using namespace seqan;
 //![include]
 
-//![updateSeedPosition]
-//![updateSeedPositionHead]
-template <typename TSeedChain>
-void updateSeedPositions(TSeedChain & seedChain, unsigned globalPosH, unsigned globalPosV)
-//![updateSeedPositionHead]
-{
-    typedef typename Iterator<TSeedChain>::Type            TSeedChainIter;
-    for (TSeedChainIter it = begin(seedChain); it != end(seedChain); ++it) {
-        setBeginPositionH(*it, beginPositionH(*it) + globalPosH);
-        setEndPositionH(*it, endPositionH(*it) + globalPosH);
-        setBeginPositionV(*it, beginPositionV(*it) + globalPosV);
-        setEndPositionV(*it, endPositionV(*it) + globalPosV);
-
-        //diag
-        setUpperDiagonal(*it, upperDiagonal(*it) + globalPosH-globalPosV);
-        setLowerDiagonal(*it, lowerDiagonal(*it) + globalPosH-globalPosV);
-    }
-}
-//![updateSeedPosition]
 //![createSeedChain]
 //![createSeedChainHead]
 template <typename TSeedChain, typename TSeqString, typename TSeedParams, typename TSeed>
@@ -87,9 +68,6 @@ struct LaganOptions
     CharString path2file1;
     CharString path2file2;
     String<Tuple<unsigned, 3> > seedParams;
-    std::vector<unsigned> qGramSizes;
-    std::vector<unsigned> chaosBandWidths;
-    std::vector<unsigned> chaosDiagDists;
 };
 
 ArgumentParser::ParseResult
@@ -142,28 +120,22 @@ parseCommandLine(LaganOptions & options, int argc, char ** argv)
             {
                 std::cerr << "ERROR: Invalid qGramSize " << params[0] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.qGramSizes.push_back(qsize);
             }
             if ( !lexicalCast(chaosDiagDist, params[1]) )
             {
                 std::cerr << "ERROR: Invalid maximal diagonal distance for CHAOS chaining " << params[1] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.chaosDiagDists.push_back(chaosDiagDist);
             }
             if ( !lexicalCast(chaosBandWidth, params[2]) )
             {
                 std::cerr << "ERROR: Invalid band width for CHAOS chaining " << params[2] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.chaosBandWidths.push_back(chaosBandWidth);
             }
             appendValue(options.seedParams, Tuple<unsigned, 3>{qsize, chaosDiagDist, chaosBandWidth} );
         }
+    } else {
+        // default values
+        appendValue(options.seedParams, Tuple<unsigned, 3>{31, 5, 10} );
     }
 
     getArgumentValue(options.path2file1, parser, 0);
@@ -219,89 +191,12 @@ int main(int argc, char ** argv) {
     Dna5String seqV = concat(seqVs,"",true);
     //![sequences]
 
-    // in this string of seeds we will store the seed chains we will find
-    SeedSet<Seed<Simple>> globalSeedSet;
-
-    // define iterator for string of seeds
-    typedef Iterator<SeedSet<Seed<Simple> > >::Type TSeedSetIter;
-
-    std::cout << "Length seqH:\t" << length(seqH) << "\tseqV:\t" << length(seqV) << std::endl;
-
-    // we seek for seeds several times. Every next iteration happens in windows where we haven't found any seeds yet.
-    // we store those seeds found in repetitive iterations in localSeedChain
-    String<Seed<Simple>> localSeedChain;
-    Score<int, Simple> scoringScheme( 2,-1,-2 ); // match, mismatch, gap
-
-    for ( unsigned curParam = 0; curParam < length(options.seedParams); ++curParam )
-    {
-        std::cout << "qgram " << options.seedParams[curParam][0] << std::endl;
-        unsigned i = 0;
-        unsigned pos = 0;
-        unsigned infixVBegin;
-        unsigned infixHBegin;
-        unsigned infixVEnd = 0;
-        unsigned infixHEnd = 0;
-        unsigned nextInfixVBegin = 0;
-        unsigned nextInfixHBegin = 0;
-
-        unsigned counter = 0;
-
-        unsigned const seedSetLen = length(globalSeedSet);
-
-        for ( TSeedSetIter globalIter = begin( globalSeedSet, Standard() ); i < seedSetLen + 1; ++i, ++pos )
-        {
-            clear(localSeedChain);
-
-            infixHBegin = nextInfixHBegin;
-            infixVBegin = nextInfixVBegin;
-
-            globalIter = begin( globalSeedSet, Standard() ) + pos;
-            if (i == seedSetLen) {
-                infixHEnd = length(seqH);
-                infixVEnd = length(seqV);
-            } else {
-                infixHEnd = beginPositionH(*globalIter);
-                infixVEnd = beginPositionV(*globalIter);
-                nextInfixHBegin = endPositionH(*globalIter);
-                nextInfixVBegin = endPositionV(*globalIter);
-            }
-
-            Dna5String seqVInfix = infix(seqV, infixVBegin, infixVEnd);
-            Dna5String seqHInfix = infix(seqH, infixHBegin, infixHEnd);
-
-            if (createSeedChain(localSeedChain,
-                                seqHInfix,
-                                seqVInfix,
-                                options.seedParams[curParam],
-                                Seed<Simple>() ) )
-            {
-                unsigned prevParam = curParam - 1;
-                if ( curParam == 0 )
-                {
-                    prevParam = 0;
-                }
-                updateSeedPositions(localSeedChain, infixHBegin, infixVBegin);
-                for ( Iterator<String<Seed<Simple> > >::Type localIter = begin( localSeedChain, Standard() ); localIter != end( localSeedChain, Standard() ); ++localIter )
-                {
-                    if ( !addSeed( globalSeedSet, *localIter, options.seedParams[prevParam][1] /*max diag dist*/, options.seedParams[prevParam][2] /*band width*/, scoringScheme, seqH, seqV, Chaos() ) )
-                    {
-                        addSeed( globalSeedSet, *localIter, Single() ); // just add seed if CHAOS fails
-                        ++pos;
-                        ++counter;
-                    }
-                }
-            }
-        }
-    }
-
-    //create seedChain
     String<Seed<Simple> > seedChain;
-    chainSeedsGlobally( seedChain, globalSeedSet, SparseChaining() );
+    createSeedChain(seedChain, seqH, seqV, options.seedParams[0], Seed<Simple>() );
 
     // INSERT YOUR CODE HERE ...
     //
 
-    //![align]
     return 0;
 }
 //![main]

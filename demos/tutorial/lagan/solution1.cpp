@@ -41,10 +41,6 @@ struct LaganOptions
     CharString path2file1;
     CharString path2file2;
     String<Tuple<unsigned, 3> > seedParams;
-    std::vector<unsigned> qGramSizes;
-    std::vector<unsigned> chaosBandWidths;
-    std::vector<unsigned> chaosDiagDists;
-
 };
 
 
@@ -99,28 +95,22 @@ parseCommandLine(LaganOptions & options, int argc, char ** argv)
             {
                 std::cerr << "ERROR: Invalid qGramSize " << params[0] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.qGramSizes.push_back(qsize);
             }
             if ( !lexicalCast(chaosDiagDist, params[1]) )
             {
                 std::cerr << "ERROR: Invalid maximal diagonal distance for CHAOS chaining " << params[1] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.chaosDiagDists.push_back(chaosDiagDist);
             }
             if ( !lexicalCast(chaosBandWidth, params[2]) )
             {
                 std::cerr << "ERROR: Invalid band width for CHAOS chaining " << params[2] << std::endl;
                 return ArgumentParser::PARSE_ERROR;
-            } else
-            {
-                options.chaosBandWidths.push_back(chaosBandWidth);
             }
             appendValue(options.seedParams, Tuple<unsigned, 3>{qsize, chaosDiagDist, chaosBandWidth} );
         }
+    } else {
+        // default values
+        appendValue(options.seedParams, Tuple<unsigned, 3>{31, 5, 10} );
     }
 
     getArgumentValue(options.path2file1, parser, 0);
