@@ -581,7 +581,7 @@ struct LessBeginDiagonal
 {
     inline bool operator()(TSeed const & lhs, TSeed const & rhs) const
     {
-        return beginDiagonal(lhs) < beginDiagonal(rhs);
+        return beginPositionH(lhs) < beginPositionH(rhs);
     }
 };
 
